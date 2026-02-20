@@ -1,0 +1,795 @@
+import { useState, useEffect } from "react";
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, ReferenceLine, Cell
+} from "recharts";
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const ppiData = [
+  { period: "2020", yoy: 1.7, label: "2020" },
+  { period: "2021", yoy: 4.9, label: "2021" },
+  { period: "2022", yoy: 10.6, label: "2022" },
+  { period: "2023", yoy: 8.8, label: "2023" },
+  { period: "2024", yoy: 2.9, label: "2024" },
+  { period: "Nov '25", yoy: 0.8, label: "Nov '25" },
+  { period: "Dec '25", yoy: 5.6, label: "Dec '25" },
+];
+
+const ppiMonthly = [
+  { m: "Jan '24", idx: 310.2 },
+  { m: "Feb '24", idx: 310.8 },
+  { m: "Mar '24", idx: 311.5 },
+  { m: "Apr '24", idx: 312.1 },
+  { m: "May '24", idx: 311.9 },
+  { m: "Jun '24", idx: 312.4 },
+  { m: "Jul '24", idx: 312.9 },
+  { m: "Aug '24", idx: 313.0 },
+  { m: "Sep '24", idx: 308.0 },
+  { m: "Oct '24", idx: 308.5 },
+  { m: "Nov '24", idx: 307.8 },
+  { m: "Dec '24", idx: 308.0 },
+  { m: "Jan '25", idx: 309.2 },
+  { m: "Feb '25", idx: 309.8 },
+  { m: "Mar '25", idx: 310.5 },
+  { m: "Apr '25", idx: 311.2 },
+  { m: "May '25", idx: 313.4 },
+  { m: "Jun '25", idx: 316.4 },
+  { m: "Jul '25", idx: 318.3 },
+  { m: "Aug '25", idx: 319.7 },
+  { m: "Sep '25", idx: 320.8 },
+  { m: "Oct '25", idx: 322.1 },
+  { m: "Nov '25", idx: 323.2 },
+  { m: "Dec '25", idx: 325.1 },
+];
+
+const tariffCosts = [
+  { co: "CAT", y2025: 1500, y2026: 2600, label: "Caterpillar" },
+  { co: "DE", y2025: 600, y2026: 1200, label: "John Deere" },
+];
+
+const priceRealization = [
+  { q: "Q1 '24", cat: 1.2, de: 0.8 },
+  { q: "Q2 '24", cat: 0.6, de: 0.3 },
+  { q: "Q3 '24", cat: -0.4, de: -0.5 },
+  { q: "Q4 '24", cat: -0.8, de: -0.9 },
+  { q: "Q1 '25", cat: -1.1, de: -1.2 },
+  { q: "Q2 '25", cat: -1.4, de: -1.5 },
+  { q: "Q3 '25", cat: -0.9, de: -1.1 },
+  { q: "Q4 '25", cat: -0.4, de: -0.5 },
+  { q: "2026E", cat: 1.5, de: 3.0 },
+];
+
+const dealerInventory = [
+  { q: "Q1 '24", change: -200 },
+  { q: "Q2 '24", change: -600 },
+  { q: "Q3 '24", change: -800 },
+  { q: "Q4 '24", change: -700 },
+  { q: "Q1 '25", change: -500 },
+  { q: "Q2 '25", change: -400 },
+  { q: "Q3 '25", change: -150 },
+  { q: "Q4 '25", change: 50 },
+];
+
+const constructionSpending = [
+  { m: "Jan '24", total: 2175, nonres: 1651, pub: 524 },
+  { m: "Feb '24", total: 2168, nonres: 1644, pub: 523 },
+  { m: "Mar '24", total: 2180, nonres: 1658, pub: 522 },
+  { m: "Apr '24", total: 2192, nonres: 1668, pub: 524 },
+  { m: "May '24", total: 2198, nonres: 1673, pub: 525 },
+  { m: "Jun '24", total: 2201, nonres: 1676, pub: 525 },
+  { m: "Jul '24", total: 2193, nonres: 1669, pub: 524 },
+  { m: "Aug '24", total: 2190, nonres: 1667, pub: 523 },
+  { m: "Sep '24", total: 2185, nonres: 1663, pub: 522 },
+  { m: "Oct '24", total: 2175, nonres: 1651, pub: 524 },
+];
+
+const COLORS = {
+  amber:  "#F59E0B",
+  orange: "#EA580C",
+  red:    "#DC2626",
+  green:  "#10B981",
+  blue:   "#3B82F6",
+  slate:  "#94A3B8",
+  dark:   "#0F172A",
+  card:   "#1E293B",
+  border: "#334155",
+  text:   "#F1F5F9",
+  muted:  "#94A3B8",
+};
+
+// ─── SUBCOMPONENTS ────────────────────────────────────────────────────────────
+
+const KPI = ({ label, value, sub, color, trend }) => (
+  <div style={{
+    background: COLORS.card,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: 12,
+    padding: "20px 24px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    position: "relative",
+    overflow: "hidden",
+  }}>
+    <div style={{
+      position: "absolute", top: 0, left: 0, right: 0, height: 3,
+      background: color,
+    }} />
+    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+      textTransform: "uppercase", color: COLORS.muted, fontFamily: "'Courier New', monospace" }}>
+      {label}
+    </span>
+    <span style={{ fontSize: 32, fontWeight: 800, color: COLORS.text,
+      fontFamily: "'Georgia', serif", lineHeight: 1.1 }}>
+      {value}
+    </span>
+    {sub && <span style={{ fontSize: 12, color: COLORS.muted }}>{sub}</span>}
+    {trend && (
+      <span style={{ fontSize: 11, color: trend > 0 ? COLORS.red : COLORS.green,
+        fontWeight: 700, marginTop: 2 }}>
+        {trend > 0 ? "▲" : "▼"} {Math.abs(trend)}% vs prior period
+      </span>
+    )}
+  </div>
+);
+
+const SectionTitle = ({ children, source }) => (
+  <div style={{ marginBottom: 12 }}>
+    <h2 style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
+      textTransform: "uppercase", color: COLORS.amber, margin: 0,
+      fontFamily: "'Courier New', monospace" }}>
+      {children}
+    </h2>
+    {source && (
+      <span style={{ fontSize: 10, color: COLORS.muted, marginTop: 2, display: "block" }}>
+        Source: {source}
+      </span>
+    )}
+  </div>
+);
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: "#0F172A", border: `1px solid ${COLORS.border}`,
+      borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+      <p style={{ color: COLORS.muted, margin: "0 0 6px", fontWeight: 700 }}>{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color || COLORS.amber, margin: "2px 0", fontWeight: 600 }}>
+          {p.name}: {typeof p.value === "number" && Math.abs(p.value) > 100
+            ? `$${p.value.toLocaleString()}M`
+            : typeof p.value === "number" ? `${p.value.toFixed(1)}%` : p.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+const DataSourceCard = ({ title, ticker, series, url, freq, desc }) => (
+  <div style={{
+    background: COLORS.card, border: `1px solid ${COLORS.border}`,
+    borderRadius: 10, padding: "14px 18px",
+  }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 800, color: COLORS.text,
+          fontFamily: "'Georgia', serif" }}>{title}</div>
+        {ticker && <div style={{ fontSize: 10, color: COLORS.amber, marginTop: 2,
+          fontFamily: "'Courier New', monospace", fontWeight: 700 }}>{ticker}</div>}
+      </div>
+      <span style={{ fontSize: 10, background: "#0F172A", color: COLORS.muted,
+        padding: "3px 8px", borderRadius: 20, border: `1px solid ${COLORS.border}`,
+        whiteSpace: "nowrap" }}>{freq}</span>
+    </div>
+    <p style={{ fontSize: 11, color: COLORS.muted, margin: "8px 0 6px", lineHeight: 1.5 }}>{desc}</p>
+    <div style={{ fontSize: 10, color: "#60A5FA", fontFamily: "'Courier New', monospace",
+      wordBreak: "break-all" }}>{url}</div>
+  </div>
+);
+
+// ─── MAIN DASHBOARD ───────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [lastUpdated] = useState("Feb 19, 2026");
+
+  const tabs = [
+    { id: "overview",   label: "Overview" },
+    { id: "pricing",    label: "Pricing & PPI" },
+    { id: "inventory",  label: "Inventory & Demand" },
+    { id: "sources",    label: "Data Sources" },
+  ];
+
+  return (
+    <div style={{
+      background: COLORS.dark, minHeight: "100vh", color: COLORS.text,
+      fontFamily: "'Inter', system-ui, sans-serif",
+      padding: "0 0 60px",
+    }}>
+
+      {/* HEADER */}
+      <div style={{
+        borderBottom: `1px solid ${COLORS.border}`,
+        padding: "24px 32px 0",
+        background: "linear-gradient(180deg, #1E293B 0%, #0F172A 100%)",
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 10, letterSpacing: "0.2em", textTransform: "uppercase",
+              color: COLORS.amber, fontFamily: "'Courier New', monospace", fontWeight: 700,
+              marginBottom: 6 }}>
+              MARKET INTELLIGENCE DASHBOARD
+            </div>
+            <h1 style={{ fontSize: 26, fontWeight: 900, margin: 0, lineHeight: 1.1,
+              fontFamily: "'Georgia', serif", color: COLORS.text }}>
+              Heavy Construction Equipment
+            </h1>
+            <p style={{ fontSize: 13, color: COLORS.muted, margin: "4px 0 0" }}>
+              Pricing · Inventory · Demand · Tariff Exposure
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10, color: COLORS.muted, letterSpacing: "0.1em",
+              textTransform: "uppercase" }}>Last Refreshed</div>
+            <div style={{ fontSize: 13, color: COLORS.text, fontWeight: 700,
+              fontFamily: "'Courier New', monospace" }}>{lastUpdated}</div>
+            <div style={{ fontSize: 10, color: COLORS.amber, marginTop: 2 }}>
+              ● Data current through Dec 2025
+            </div>
+          </div>
+        </div>
+
+        {/* TABS */}
+        <div style={{ display: "flex", gap: 0, marginTop: 20 }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              background: "none", border: "none", cursor: "pointer",
+              padding: "10px 20px", fontSize: 12, fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase",
+              fontFamily: "'Courier New', monospace",
+              color: activeTab === t.id ? COLORS.amber : COLORS.muted,
+              borderBottom: activeTab === t.id ? `2px solid ${COLORS.amber}` : "2px solid transparent",
+              transition: "all 0.15s",
+            }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: "28px 32px" }}>
+
+        {/* ── OVERVIEW TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "overview" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+
+            {/* KPI ROW */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+              <KPI
+                label="Equip. PPI (Dec '25)"
+                value="+5.6%"
+                sub="WPU112 · 12-month Y/Y"
+                color={COLORS.red}
+                trend={4.8}
+              />
+              <KPI
+                label="CAT Tariff Hit 2026E"
+                value="$2.6B"
+                sub="Incremental vs. 2025"
+                color={COLORS.orange}
+              />
+              <KPI
+                label="DE Price Real. 2026E"
+                value="+3%"
+                sub="Construction & Forestry"
+                color={COLORS.green}
+              />
+              <KPI
+                label="Constrc. Spending"
+                value="$2.18T"
+                sub="Oct 2025 SAAR · Census"
+                color={COLORS.blue}
+              />
+            </div>
+
+            {/* SIGNAL SUMMARY */}
+            <div style={{
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              borderRadius: 12, padding: "20px 24px",
+              borderLeft: `4px solid ${COLORS.amber}`,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+                textTransform: "uppercase", color: COLORS.amber, marginBottom: 12,
+                fontFamily: "'Courier New', monospace" }}>
+                Market Signal Summary
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                {[
+                  { signal: "PRICES", status: "ACCELERATING", color: COLORS.red,
+                    note: "Dec '25 PPI +5.6% Y/Y — fastest in 2 years. Tariff pass-through beginning." },
+                  { signal: "INVENTORY", status: "NORMALIZING", color: COLORS.amber,
+                    note: "Post-pandemic glut cleared. Dealer destocking cycle complete by Q4 '25." },
+                  { signal: "DEMAND", status: "RECOVERING", color: COLORS.green,
+                    note: "Deere & CAT order books growing. Infrastructure + data center spending solid." },
+                ].map(s => (
+                  <div key={s.signal} style={{
+                    background: "#0F172A", borderRadius: 8, padding: "14px 16px",
+                    border: `1px solid ${COLORS.border}`,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: COLORS.muted,
+                        letterSpacing: "0.15em", textTransform: "uppercase",
+                        fontFamily: "'Courier New', monospace" }}>{s.signal}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: s.color,
+                        background: `${s.color}20`, padding: "2px 8px",
+                        borderRadius: 20, border: `1px solid ${s.color}40` }}>{s.status}</span>
+                    </div>
+                    <p style={{ fontSize: 11, color: COLORS.muted, margin: 0, lineHeight: 1.55 }}>{s.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* PPI SPARKLINE + TARIFF */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20 }}>
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle source="BLS WPU112">Equipment PPI — Annual Y/Y % Change</SectionTitle>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={ppiData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
+                    <XAxis dataKey="period" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <ReferenceLine y={0} stroke={COLORS.border} />
+                    <Bar dataKey="yoy" name="Y/Y %" radius={[4, 4, 0, 0]}>
+                      {ppiData.map((d, i) => (
+                        <Cell key={i} fill={d.yoy > 5 ? COLORS.red : d.yoy > 2 ? COLORS.orange : d.yoy > 0 ? COLORS.amber : COLORS.green} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle source="CAT & DE Earnings">OEM Tariff Cost ($M)</SectionTitle>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={tariffCosts} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="y2025" name="2025 Actual" fill={COLORS.amber} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="y2026" name="2026 Forecast" fill={COLORS.red} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+                  {[{ c: COLORS.amber, l: "2025 Actual" }, { c: COLORS.red, l: "2026 Forecast" }].map(x => (
+                    <div key={x.l} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: COLORS.muted }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 2, background: x.c }} />
+                      {x.l}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── PRICING TAB ─────────────────────────────────────────────────── */}
+        {activeTab === "pricing" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              borderRadius: 12, padding: "20px 24px",
+            }}>
+              <SectionTitle source="BLS WPU112 via FRED · fred.stlouisfed.org/series/WPU112">
+                PPI Index Level — Construction Machinery & Equipment (WPU112, Base 1982=100)
+              </SectionTitle>
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={ppiMonthly} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis dataKey="m" tick={{ fill: COLORS.muted, fontSize: 10 }}
+                    axisLine={false} tickLine={false}
+                    interval={3} />
+                  <YAxis domain={[300, 330]} tick={{ fill: COLORS.muted, fontSize: 11 }}
+                    axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <ReferenceLine x="Jan '25" stroke={COLORS.amber} strokeDasharray="4 4"
+                    label={{ value: "Tariffs begin", fill: COLORS.amber, fontSize: 10 }} />
+                  <Line type="monotone" dataKey="idx" name="PPI Index"
+                    stroke={COLORS.amber} strokeWidth={2.5}
+                    dot={false} activeDot={{ r: 5, fill: COLORS.amber }} />
+                </LineChart>
+              </ResponsiveContainer>
+              <p style={{ fontSize: 11, color: COLORS.muted, margin: "10px 0 0", lineHeight: 1.6 }}>
+                Note: Index accelerated sharply from May 2025 onward as Section 232 steel/aluminum tariffs
+                began flowing through to finished equipment prices. December 2025 reading: <strong style={{ color: COLORS.text }}>325.1</strong>.
+                Next data release: <strong style={{ color: COLORS.amber }}>February 27, 2026</strong>.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle source="CAT & DE Quarterly Earnings">
+                  OEM Price Realization (% of revenue)
+                </SectionTitle>
+                <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 0, marginBottom: 12, lineHeight: 1.55 }}>
+                  Price realization = net difference between listed price and actual selling price.
+                  Negative = manufacturers discounting / absorbing costs. Watch for this to turn positive.
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={priceRealization} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                    <XAxis dataKey="q" tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <ReferenceLine y={0} stroke={COLORS.amber} strokeDasharray="3 3" />
+                    <Line type="monotone" dataKey="cat" name="Caterpillar" stroke={COLORS.amber}
+                      strokeWidth={2} dot={{ r: 3 }} />
+                    <Line type="monotone" dataKey="de" name="John Deere" stroke={COLORS.blue}
+                      strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
+                  {[{ c: COLORS.amber, l: "Caterpillar" }, { c: COLORS.blue, l: "John Deere" }].map(x => (
+                    <div key={x.l} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: COLORS.muted }}>
+                      <div style={{ width: 16, height: 2, background: x.c }} />{x.l}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle>Key Price Metrics to Watch</SectionTitle>
+                {[
+                  { metric: "WPU112 Y/Y", current: "+5.6%", next: "Feb 27", context: "Fastest since 2022. Accelerating." },
+                  { metric: "CAT Price Realization", current: "Turning +", next: "Q4 '25 earnings", context: "Bottomed Q2 '25. 2026E: positive." },
+                  { metric: "DE Const. Price Real.", current: "+3% (2026E)", next: "Q1 '26 report", context: "Explicitly guiding for price increases." },
+                  { metric: "Parts PPI (PCU3331209)", current: "+24% (Jun '25)", next: "Feb 27", context: "Leading indicator — parts precede machines." },
+                  { metric: "Aluminum PPI", current: "+30.5%", next: "Feb 27", context: "Major input; 50% tariff in effect." },
+                  { metric: "Steel Mill Products PPI", current: "+17%", next: "Feb 27", context: "50% tariff driving surge." },
+                ].map(r => (
+                  <div key={r.metric} style={{
+                    display: "grid", gridTemplateColumns: "1.2fr 0.6fr 1fr",
+                    borderBottom: `1px solid ${COLORS.border}`, padding: "8px 0", gap: 8,
+                    alignItems: "center",
+                  }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: COLORS.text,
+                      fontFamily: "'Courier New', monospace" }}>{r.metric}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: COLORS.amber }}>{r.current}</span>
+                    <span style={{ fontSize: 10, color: COLORS.muted }}>{r.context}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── INVENTORY TAB ────────────────────────────────────────────────── */}
+        {activeTab === "inventory" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle source="Caterpillar Quarterly Earnings">
+                  CAT Dealer Inventory Change ($M, Quarterly)
+                </SectionTitle>
+                <p style={{ fontSize: 11, color: COLORS.muted, marginTop: 0, marginBottom: 12, lineHeight: 1.55 }}>
+                  Negative bars = destocking (dealers drawing down inventory).
+                  Turning positive = channel restock; signals tightening supply.
+                </p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={dealerInventory} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} vertical={false} />
+                    <XAxis dataKey="q" tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <ReferenceLine y={0} stroke={COLORS.amber} />
+                    <Bar dataKey="change" name="Inventory Change ($M)" radius={[4, 4, 0, 0]}>
+                      {dealerInventory.map((d, i) => (
+                        <Cell key={i} fill={d.change >= 0 ? COLORS.green : COLORS.red} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{
+                background: COLORS.card, border: `1px solid ${COLORS.border}`,
+                borderRadius: 12, padding: "20px 24px",
+              }}>
+                <SectionTitle source="U.S. Census Bureau C30">
+                  Construction Spending — SAAR ($B)
+                </SectionTitle>
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={constructionSpending} margin={{ top: 4, right: 16, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                    <XAxis dataKey="m" tick={{ fill: COLORS.muted, fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <YAxis domain={[400, 2400]} tick={{ fill: COLORS.muted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line type="monotone" dataKey="total" name="Total" stroke={COLORS.amber} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="nonres" name="Private" stroke={COLORS.blue} strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                    <Line type="monotone" dataKey="pub" name="Public" stroke={COLORS.green} strokeWidth={1.5} dot={false} strokeDasharray="4 2" />
+                  </LineChart>
+                </ResponsiveContainer>
+                <div style={{ display: "flex", gap: 20, marginTop: 8 }}>
+                  {[{ c: COLORS.amber, l: "Total" }, { c: COLORS.blue, l: "Private" }, { c: COLORS.green, l: "Public" }].map(x => (
+                    <div key={x.l} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: COLORS.muted }}>
+                      <div style={{ width: 16, height: 2, background: x.c }} />{x.l}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{
+              background: COLORS.card, border: `1px solid ${COLORS.border}`,
+              borderRadius: 12, padding: "20px 24px",
+            }}>
+              <SectionTitle>Inventory & Demand Tracker — Key Metrics</SectionTitle>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 4 }}>
+                {[
+                  {
+                    label: "CAT Dealer Inventory",
+                    status: "NORMALIZING", color: COLORS.amber,
+                    value: "~Flat Q4 '25",
+                    detail: "Down from -$800M quarterly peak in Q3 '24. Destocking cycle over.",
+                    source: "CAT Quarterly Earnings"
+                  },
+                  {
+                    label: "Used Equipment Values",
+                    status: "DECLINING", color: COLORS.red,
+                    value: "-9% Y/Y (2024)",
+                    detail: "Post-pandemic glut correcting. Still above 2019 levels. Stabilizing in 2025.",
+                    source: "Sandhills / Ritchie Bros."
+                  },
+                  {
+                    label: "Rental Utilization",
+                    status: "HIGH", color: COLORS.green,
+                    value: "57% penetration",
+                    detail: "All-time high rental rate. URI & Sunbelt reporting strong earthmoving demand.",
+                    source: "ARA / URI Earnings"
+                  },
+                  {
+                    label: "DE Order Book",
+                    status: "GROWING", color: COLORS.green,
+                    value: "Ahead of plan",
+                    detail: "Q1 FY2026 retail settlements running ahead of expectations. Order intake expanding.",
+                    source: "DE Q1 FY2026 Earnings"
+                  },
+                  {
+                    label: "CAT Construction Sales",
+                    status: "GROWING", color: COLORS.green,
+                    value: "+15% Q4 '25",
+                    detail: "Construction revenue $6.9B in Q4 '25. North America outlook 'positive' for 2026.",
+                    source: "CAT Q4 2025 Earnings"
+                  },
+                  {
+                    label: "New OEM Orders (Census)",
+                    status: "WATCH", color: COLORS.amber,
+                    value: "M3 Series",
+                    detail: "Track FRED series AMTMNO for forward-looking new orders into manufacturers.",
+                    source: "Census Bureau M3"
+                  },
+                ].map(m => (
+                  <div key={m.label} style={{
+                    background: "#0F172A", borderRadius: 8, padding: "14px 16px",
+                    border: `1px solid ${COLORS.border}`,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: COLORS.text,
+                        fontFamily: "'Courier New', monospace" }}>{m.label}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: m.color,
+                        background: `${m.color}20`, padding: "2px 8px", borderRadius: 20 }}>{m.status}</span>
+                    </div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: m.color,
+                      fontFamily: "'Georgia', serif", marginBottom: 4 }}>{m.value}</div>
+                    <p style={{ fontSize: 10, color: COLORS.muted, margin: "0 0 6px", lineHeight: 1.5 }}>{m.detail}</p>
+                    <div style={{ fontSize: 9, color: "#60A5FA", fontFamily: "'Courier New', monospace" }}>
+                      ↗ {m.source}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── DATA SOURCES TAB ─────────────────────────────────────────────── */}
+        {activeTab === "sources" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{
+              background: COLORS.card, border: `1px solid ${COLORS.amber}40`,
+              borderRadius: 12, padding: "16px 24px",
+              borderLeft: `4px solid ${COLORS.amber}`,
+            }}>
+              <p style={{ margin: 0, fontSize: 12, color: COLORS.text, lineHeight: 1.7 }}>
+                All data below is free and publicly available. PPI data can be pulled via the{" "}
+                <span style={{ color: COLORS.amber, fontFamily: "'Courier New', monospace" }}>BLS Public Data API</span>{" "}
+                or <span style={{ color: COLORS.amber, fontFamily: "'Courier New', monospace" }}>FRED API</span>{" "}
+                with no API key required. OEM data requires monitoring earnings releases. Build a Python/Excel
+                pipeline pulling BLS series IDs on a monthly cron to auto-update this dashboard.
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.amber, letterSpacing: "0.12em",
+                  textTransform: "uppercase", fontFamily: "'Courier New', monospace", marginBottom: 12 }}>
+                  📊 Price Inflation
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <DataSourceCard
+                    title="PPI: Construction Machinery & Equipment"
+                    ticker="WPU112"
+                    url="fred.stlouisfed.org/series/WPU112"
+                    freq="Monthly"
+                    desc="Headline producer price index for new heavy equipment. The primary inflation tracker. Updated ~2 weeks after month end."
+                  />
+                  <DataSourceCard
+                    title="PPI: Construction Machinery Manufacturing"
+                    ticker="PCU333120333120"
+                    url="fred.stlouisfed.org/series/PCU333120333120"
+                    freq="Monthly"
+                    desc="Industry-level PPI — complements WPU112 with manufacturer-side pricing data."
+                  />
+                  <DataSourceCard
+                    title="PPI: Parts for Construction Equipment"
+                    ticker="PCU3331203331209"
+                    url="fred.stlouisfed.org/series/PCU3331203331209"
+                    freq="Monthly"
+                    desc="Leading indicator — parts prices typically lead finished equipment by 2–3 months. Surged 24% Y/Y in Jun '25."
+                  />
+                  <DataSourceCard
+                    title="PPI: Excavators (WPU112B)"
+                    ticker="WPU112B"
+                    url="fred.stlouisfed.org/series/WPU112B"
+                    freq="Monthly"
+                    desc="Category-specific PPI for power cranes, draglines, shovels, and excavators. Useful for segment-level tracking."
+                  />
+                  <DataSourceCard
+                    title="AGC PPI Tables"
+                    ticker="Monthly PDF"
+                    url="agc.org/economics (PPI Tables link)"
+                    freq="Monthly"
+                    desc="AGC publishes a comprehensive monthly PDF with Y/Y % changes across all construction PPI series. Easiest human-readable format."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.blue, letterSpacing: "0.12em",
+                  textTransform: "uppercase", fontFamily: "'Courier New', monospace", marginBottom: 12 }}>
+                  📦 Inventory & Demand
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <DataSourceCard
+                    title="Caterpillar Quarterly Earnings"
+                    ticker="CAT · NYSE"
+                    url="investors.caterpillar.com"
+                    freq="Quarterly"
+                    desc="Watch: dealer inventory $ change, price realization %, Construction Industries segment revenue, tariff cost guidance."
+                  />
+                  <DataSourceCard
+                    title="John Deere Quarterly Earnings"
+                    ticker="DE · NYSE"
+                    url="johndeere.com/earnings"
+                    freq="Quarterly"
+                    desc="Watch: Construction & Forestry net sales, price realization, tariff expense, order book commentary."
+                  />
+                  <DataSourceCard
+                    title="Sandhills Global Market Report"
+                    ticker="Free Monthly"
+                    url="machinerytrader.com/blog"
+                    freq="Monthly"
+                    desc="Used equipment asking prices, auction values, and inventory levels by category. Best free source for secondary market data."
+                  />
+                  <DataSourceCard
+                    title="Census Construction Spending (C30)"
+                    ticker="Census / FRED"
+                    url="census.gov/construction/c30"
+                    freq="Monthly"
+                    desc="Total construction put in place — the demand driver. Nov & Dec '25 data releases Feb 27, 2026. Track nonresidential subsectors."
+                  />
+                  <DataSourceCard
+                    title="Manufacturers' New Orders: Construction Machinery"
+                    ticker="AMTMNO · FRED"
+                    url="fred.stlouisfed.org/series/AMTMNO"
+                    freq="Monthly"
+                    desc="Forward-looking orders flowing into OEMs. Leads production and shipments by 1–3 months."
+                  />
+                  <DataSourceCard
+                    title="United Rentals Earnings"
+                    ticker="URI · NYSE"
+                    url="unitedrentals.com/investors"
+                    freq="Quarterly"
+                    desc="Watch: time utilization %, dollar utilization %, fleet size growth. Leading indicator of contractor equipment demand."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* API CHEAT SHEET */}
+            <div style={{
+              background: "#0F172A", border: `1px solid ${COLORS.border}`,
+              borderRadius: 12, padding: "20px 24px",
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: COLORS.green, letterSpacing: "0.12em",
+                textTransform: "uppercase", fontFamily: "'Courier New', monospace", marginBottom: 14 }}>
+                🔌 API Quick Start — Pull PPI Data Programmatically
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: COLORS.amber, marginBottom: 6,
+                    fontFamily: "'Courier New', monospace", fontWeight: 700 }}>FRED API (No key needed)</div>
+                  <div style={{
+                    background: "#1E293B", borderRadius: 6, padding: "12px 14px",
+                    fontSize: 10, fontFamily: "'Courier New', monospace", color: "#86EFAC",
+                    lineHeight: 1.8, border: `1px solid ${COLORS.border}`,
+                  }}>
+                    {`# Python example
+import requests, pandas as pd
+
+url = "https://fred.stlouisfed.org/graph/fredgraph.csv"
+params = {"id": "WPU112"}
+df = pd.read_csv(url + "?id=WPU112")
+df["yoy"] = df["WPU112"].pct_change(12) * 100
+print(df.tail(13))`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: COLORS.amber, marginBottom: 6,
+                    fontFamily: "'Courier New', monospace", fontWeight: 700 }}>BLS Public API (Free, no key)</div>
+                  <div style={{
+                    background: "#1E293B", borderRadius: 6, padding: "12px 14px",
+                    fontSize: 10, fontFamily: "'Courier New', monospace", color: "#86EFAC",
+                    lineHeight: 1.8, border: `1px solid ${COLORS.border}`,
+                  }}>
+                    {`# BLS series IDs to track:
+# WPU112    - Equipment PPI (main)
+# PCU3331209 - Parts PPI (leading)
+# WPU112B   - Excavators PPI
+
+curl "https://api.bls.gov/publicAPI/v2/
+timeseries/data/WPU112?
+startyear=2022&endyear=2026"`}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <div style={{
+        borderTop: `1px solid ${COLORS.border}`, padding: "16px 32px",
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        marginTop: 8,
+      }}>
+        <span style={{ fontSize: 10, color: COLORS.muted, fontFamily: "'Courier New', monospace" }}>
+          HEAVY EQUIPMENT MARKET DASHBOARD · DATA THROUGH DEC 2025
+        </span>
+        <span style={{ fontSize: 10, color: COLORS.muted }}>
+          Sources: BLS · FRED · Caterpillar Earnings · John Deere Earnings · Census Bureau · AGC · Sandhills Global
+        </span>
+      </div>
+    </div>
+  );
+}

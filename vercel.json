@@ -1,0 +1,32 @@
+# Heavy Equipment Market Dashboard
+
+## Deploy to Vercel (one-time setup, ~5 minutes)
+
+### Option A: Drag & Drop (no account needed initially)
+1. Go to vercel.com
+2. Click "Start Deploying"
+3. Drag this entire `equipment-dashboard` folder onto the page
+4. Vercel builds it and gives you a live URL (e.g. equipment-dashboard-abc123.vercel.app)
+5. Share that URL with your team
+
+### Option B: GitHub (recommended for easy updates)
+1. Create a free GitHub account at github.com
+2. Create a new repository called `equipment-dashboard`
+3. Upload all files in this folder to that repo
+4. Go to vercel.com → "Import Project" → connect your GitHub repo
+5. Vercel auto-deploys — every time you push updated files, the live URL refreshes automatically
+
+## Updating the Dashboard
+
+**With Claude:** Share the .jsx file (App.jsx) and say "update the dashboard with [month] data."
+Claude will edit the data arrays at the top of App.jsx and return the updated file.
+Then replace App.jsx in your repo/folder and redeploy.
+
+**Manually:** Open src/App.jsx — all data is in clearly labeled arrays near the top of the file.
+Find the array for the metric you want to update, add the new month's values, save, redeploy.
+
+## Files
+- `src/App.jsx` — the entire dashboard (all data lives here)
+- `src/index.js` — React entry point (don't edit)
+- `public/index.html` — HTML shell (don't edit)
+- `package.json` — dependencies (don't edit)
